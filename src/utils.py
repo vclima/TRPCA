@@ -1,6 +1,7 @@
 import numpy as np 
 import scipy.fft as fft
 import scipy.ifft as ifft 
+import numpy,
 
 def transpose(X):
     """The transpose of a tensor
@@ -80,3 +81,43 @@ def solve_Lp_w(y,lambda_,p):
         x[i0] = np.multiply(np.sign(y0),t)
 
     return x
+
+def prox_l1(b, lambda_):
+    x = np.maximum(0,b+lambda_) + np.minimum(0,b-lambda_)
+    
+    return x
+
+def etrpca_tnn_lp(X, lambda_, weight, p, tol=1e-8, max_iter=500, rho=1.1, mu=1e-4, max_mu=1e10):
+    
+    dim=X.shape
+    L = np.zeros(dim)
+    S = L.copy()
+    Y = L.copy()
+
+    for i in range(max_iter):
+        Lk = L.copy()
+        Sk = S.copy()
+
+        L, tnnL = prox_tnn(-S+X-Y/mu, p)
+
+        S = prox_l1(-L+X-Y, lambda_/mu)
+        
+        dY = L+S-X
+
+        chgL = np.max(np.abs(Lk-L))
+        chgS = np.max(np.abs(Sk-S))
+        chg = np.max([chgL,chgS,np.max(np.abs(dY))])
+        
+        if chg>tol:
+            break
+        Y = Y + mu*dY
+        mu = np.minimum(rho*mu, max_mu)
+
+    obj = tnnL+lambda_*np.linalg.norm(S, ord=1)
+    err = np.linalg.norm(dY)
+
+    return L, S, obj, err
+
+    
+
+
