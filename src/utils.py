@@ -1,7 +1,7 @@
 import numpy as np 
-import scipy.fft as fft
-import scipy.ifft as ifft 
-import numpy,
+from scipy.fft import fft,ifft
+from scipy.linalg import svd
+
 
 def transpose(X):
     """The transpose of a tensor
@@ -118,6 +118,49 @@ def etrpca_tnn_lp(X, lambda_, weight, p, tol=1e-8, max_iter=500, rho=1.1, mu=1e-
 
     return L, S, obj, err
 
+
+def prox_tnn(Y,rho,p):
+    '''
+    %this function is used to update E of our model,E is the tensor
+
+    % The proximal operator of the tensor nuclear norm of a 3 way tensor
+    %
+    % min_X rho*||X||_*+0.5*||X-Y||_F^2
+    %
+    % Y     -    n1*n2*n3 tensor
+    %
+    % X     -    n1*n2*n3 tensor
+    % tnn   -    tensor nuclear norm of X
+    % trank -    tensor tubal rank of X
+    '''
+    n1,n2,n3 = Y.shape
+    n12 = min(n1,n2)
+    Y = fft(Y)
+    U = np.zeros([n1,n12,n3])
+    V = np.zeros([n2,n12,n3])
+    S = np.zeros([n12,n12,n3])
+    trank = 0
+    for i in range(n3):
+        U[:,:,i],s,V[:,:,i] = svd(Y[:,:,i])
+        s = np.diag(s)
+        s = solve_Lp_w(s, rho, p); 
+        S[:,:,i] = np.diag(s)
+        tranki = len(np.where(s!=0))
+        trank = max(tranki,trank)
+    U = U[:,1:trank,:]
+    V = V[:,1:trank,:]
+    S = S[1:trank,1:trank,:]
+
+    #U = ifft(U,[],3)
+    U = ifft(U)
+    S = ifft(S)
+    V = ifft(V)
+
+    X = tprod(tprod(U,S),transpose(V))
+
+    S = S[:,:,1]
+    tnn = np.sum(S[:]) # return the tensor nuclear norm of X
+    return X,tnn,trank
     
 
 
